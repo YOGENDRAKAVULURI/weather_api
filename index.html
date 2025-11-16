@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weather — Chat</title>
+
+  <style>
+    /* Reset + base */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html,body { height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(120deg,#0f172a 0%, #0b1221 40%, #1f2937 100%);
+      color: #e6eef8;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      padding: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    /* Layout */
+    .container {
+      width: 100%;
+      max-width: 980px;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 880px) {
+      .container { grid-template-columns: 1fr; padding: 0 12px; }
+    }
+
+    /* Animated gradient panel (left) */
+    .hero {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      padding: 34px;
+      border-radius: 18px;
+      min-height: 360px;
+      box-shadow: 0 10px 50px rgba(2,6,23,0.65);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    /* animated blend shapes in background */
+    .hero::before, .hero::after {
+      content: "";
+      position: absolute;
+      filter: blur(60px);
+      opacity: 0.28;
+      transform: translateZ(0);
+      pointer-events: none;
+    }
+    .hero::before {
+      width: 420px; height: 420px; left: -100px; top: -120px;
+      background: radial-gradient(circle at 30% 30%, #7c3aed, #4f46e5 40%, transparent 60%);
+      animation: float1 12s ease-in-out infinite;
+    }
+    .hero::after {
+      width: 420px; height: 420px; right: -80px; bottom: -140px;
+      background: radial-gradient(circle at 70% 70%, #06b6d4, #3b82f6 30%, transparent 50%);
+      animation: float2 10s ease-in-out infinite;
+    }
+    @keyframes float1 {
+      0% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-18px) rotate(6deg); }
+      100% { transform: translateY(0) rotate(0deg); }
+    }
+    @keyframes float2 {
+      0% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(18px) rotate(-6deg); }
+      100% { transform: translateY(0) rotate(0deg); }
+    }
+
+    /* Title */
+    .title {
+      display:flex; align-items:center; gap:12px; margin-bottom: 14px;
+    }
+    .logo {
+      width:56px; height:56px; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:20px;
+      background: linear-gradient(135deg,#7c3aed,#4f46e5);
+      box-shadow: 0 6px 20px rgba(79,70,229,0.2);
+      color: white;
+    }
+    h1 { font-size: 1.4rem; color: #e6eef8; }
+    p.lead { opacity:0.9; margin-top:6px; font-size: 0.94rem; color: #cfe7ff; }
+
+    /* Search form */
+    form#searchForm {
+      display:flex; gap:10px; margin-top: 18px;
+      align-items: center; flex-wrap:wrap;
+    }
+
+    .input {
+      flex:1 1 220px;
+      min-width: 160px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02);
+      color: #e6eef8;
+      font-size: 1rem;
+      outline: none;
+      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+    .input:focus {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(79,70,229,0.12);
+      border-color: rgba(124,58,237,0.65);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .controls {
+      display:flex; gap:8px; align-items:center;
+    }
+    .btn {
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(90deg,#7c3aed,#4f46e5);
+      color: white; cursor: pointer; font-weight:600;
+      box-shadow: 0 8px 30px rgba(79,70,229,0.16);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .btn:active { transform: translateY(1px); box-shadow: 0 6px 20px rgba(79,70,229,0.12); }
+    .btn.ghost {
+      background: transparent; border: 1px solid rgba(255,255,255,0.06);
+      color: #dbeafe; box-shadow:none;
+    }
+
+    .unit-toggle {
+      display:flex; gap:6px; background: rgba(255,255,255,0.02); padding:6px; border-radius:10px;
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    .unit-toggle button {
+      border: none; background: transparent; color: #dbeafe; padding:6px 8px; cursor:pointer; border-radius:8px;
+    }
+    .unit-toggle .active {
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 6px 18px rgba(2,6,23,0.5);
+    }
+
+    /* Card for results (right column) */
+    .result {
+      padding: 22px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow: 0 10px 40px rgba(2,6,23,0.65);
+      min-height: 220px;
+      display:flex; flex-direction: column; gap:12px; align-items: center; justify-content: center;
+    }
+    .result .city {
+      display:flex; gap:12px; align-items:center;
+      font-size:1.1rem; font-weight:700; color: #fff;
+    }
+    .result .temp {
+      font-size: 3rem; font-weight:800; line-height:1;
+      margin-top: 4px; color: #fff;
+      text-shadow: 0 6px 30px rgba(12,22,48,0.55);
+    }
+    .result .meta { display:flex; gap:18px; margin-top:8px; opacity:0.95; color: #dbeafe; }
+
+    /* small icons / details */
+    .icon {
+      width:72px;height:72px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 6px 24px rgba(2,6,23,0.6);
+      transform-origin: center;
+      animation: floatIcon 6s ease-in-out infinite;
+    }
+    @keyframes floatIcon {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+      100% { transform: translateY(0); }
+    }
+
+    .details {
+      width:100%; display:flex; gap:12px; justify-content:space-between; margin-top:12px; flex-wrap:wrap;
+      color:#cfe7ff;
+    }
+    .chip {
+      display:flex; gap:8px; align-items:center; padding:8px 12px; border-radius:12px; font-size:0.95rem;
+      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.03);
+    }
+
+    /* Error / info */
+    .message {
+      width:100%; text-align:center; padding:10px 12px; border-radius:10px; background: rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.03); color:#ffd5d5;
+    }
+
+    /* Footer small */
+    .footer {
+      margin-top:14px; color: #bcd9ff; opacity:0.9; font-size:0.86rem;
+    }
+
+    /* subtle shine on button */
+    .btn:after {
+      content: ""; position: absolute; width: 60px; height: 100px; right: 12px; top: -30px; transform: rotate(25deg);
+      background: linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.02));
+      opacity: 0; transition: opacity .3s ease;
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .btn:hover:after { opacity: 0.12; }
+
+    /* loader */
+    .loader {
+      width:40px;height:40px;border-radius:50%;border:4px solid rgba(255,255,255,0.07);border-top-color:#fff;
+      animation: spin 1s linear infinite; margin: 6px;
+    }
+    @keyframes spin { 0%{transform:rotate(0)}100%{transform:rotate(360deg)} }
+
+    /* micro animations */
+    .fade-in { animation: fadeIn .45s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px) } to { opacity:1; transform:none } }
+
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <!-- LEFT: interactive search / info -->
+    <section class="hero" aria-labelledby="appTitle">
+      <div class="title">
+        <div class="logo" aria-hidden="true">W</div>
+        <div>
+          <h1 id="appTitle">Weather App</h1>
+          <p class="lead">Fast, responsive weather — type a city and press Get Weather.</p>
+        </div>
+      </div>
+
+      <form id="searchForm" onsubmit="weatherinfo(event)" aria-label="Search city weather">
+        <input id="info" class="input" type="search" placeholder="Enter city name (e.g. Mumbai)" aria-label="City name" required />
+        <div class="controls">
+          <button type="submit" class="btn" title="Get Weather" id="getBtn">Get Weather</button>
+          <button type="button" class="btn ghost" id="myLocationBtn" title="Use my location">Use my location</button>
+        </div>
+
+        <div style="margin-top:12px; display:flex;align-items:center;justify-content:space-between; gap:12px;">
+          <div class="unit-toggle" role="radiogroup" aria-label="Temperature units">
+            <button id="unitC" class="active" aria-checked="true" role="radio">°C</button>
+            <button id="unitF" role="radio">°F</button>
+          </div>
+          <div style="color:#cfe7ff; font-size:0.92rem;">Tip: Try "New York", "Tokyo", "Bengaluru"</div>
+        </div>
+      </form>
+
+      <div class="footer" style="margin-top:16px;">
+        Protected by OpenWeather — For production, move the key off the client.
+      </div>
+    </section>
+
+    <!-- RIGHT: results -->
+    <aside class="result" id="display" aria-live="polite" aria-atomic="true">
+      <div class="message fade-in">Search a city to see weather details.</div>
+    </aside>
+  </div>
+
+  <script>
+    // ----------- Configuration -------------
+    const API_KEY = "e0ce78c24045a9e1c75effa5f2b1d580"; // Replace if needed
+    const display = document.getElementById('display');
+    const input = document.getElementById('info');
+    const btn = document.getElementById('getBtn');
+    const myLocBtn = document.getElementById('myLocationBtn');
+    const unitC = document.getElementById('unitC');
+    const unitF = document.getElementById('unitF');
+
+    // Keep unit selection in localStorage
+    const savedUnit = localStorage.getItem('weatherUnit') || 'metric';
+    let unit = savedUnit; // 'metric' (C) or 'imperial' (F)
+    if (unit === 'metric') toggleActive(unitC, unitF); else toggleActive(unitF, unitC);
+
+    function toggleActive(activeBtn, inactiveBtn) {
+      activeBtn.classList.add('active');
+      activeBtn.setAttribute('aria-checked','true');
+      inactiveBtn.classList.remove('active');
+      inactiveBtn.setAttribute('aria-checked','false');
+    }
+
+    unitC.addEventListener('click', () => { unit = 'metric'; localStorage.setItem('weatherUnit', 'metric'); toggleActive(unitC, unitF); });
+    unitF.addEventListener('click', () => { unit = 'imperial'; localStorage.setItem('weatherUnit', 'imperial'); toggleActive(unitF, unitC); });
+
+    // helper: display a message
+    function showMessage(html, type='info') {
+      display.innerHTML = `<div class="message fade-in">${html}</div>`;
+    }
+
+    // helper: convert wind deg to direction
+    function windDir(deg) {
+      const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      return dirs[Math.round(deg / 22.5) % 16];
+    }
+
+    // helper: build weather card
+    function renderResult(data) {
+      const isC = unit === 'metric';
+      const tempUnit = isC ? '°C' : '°F';
+      const speedUnit = isC ? 'm/s' : 'mph';
+      const iconCode = data.weather[0].icon;
+      const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@4x.png`;
+
+      const html = `
+        <div style="display:flex;gap:18px;align-items:center;width:100%;justify-content:center;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div class="icon">
+              <img src="${iconUrl}" alt="${data.weather[0].description}" style="width:72px;height:72px;filter: drop-shadow(0 6px 20px rgba(2,6,23,0.6))" />
+            </div>
+          </div>
+
+          <div style="flex:1;min-width:180px;">
+            <div class="city">${data.name}, ${data.sys.country}</div>
+            <div class="temp">${Math.round(data.main.temp)}<span style="font-size:0.35em; margin-left:6px;">${tempUnit}</span></div>
+            <div style="color:#cfe7ff; margin-top:6px;">${data.weather[0].description.replace(/\b\w/g, l => l.toUpperCase())}</div>
+            <div class="meta" style="margin-top:6px;">
+              <div class="chip">Feels: ${Math.round(data.main.feels_like)}${tempUnit}</div>
+              <div class="chip">Humidity: ${data.main.humidity}%</div>
+              <div class="chip">Wind: ${data.wind.speed} ${speedUnit} (${windDir(data.wind.deg)})</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="details fade-in" style="margin-top:14px;">
+          <div class="chip">Pressure: ${data.main.pressure} hPa</div>
+          <div class="chip">Visibility: ${Math.round((data.visibility||0)/1000)} km</div>
+          <div class="chip">Sunrise: ${new Date(data.sys.sunrise*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+          <div class="chip">Sunset: ${new Date(data.sys.sunset*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      `;
+
+      display.innerHTML = html;
+    }
+
+    // Fetch weather by city
+    async function fetchWeatherByCity(city) {
+      showLoader();
+      try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=${unit}`);
+        if (!res.ok) {
+          if (res.status === 404) throw new Error('City not found. Check spelling.');
+          throw new Error('Unable to fetch weather. Status: ' + res.status);
+        }
+        const data = await res.json();
+        renderResult(data);
+      } catch (err) {
+        showMessage(err.message || 'Error fetching weather.');
+      }
+    }
+
+    // Fetch weather by coords
+    async function fetchWeatherByCoords(lat, lon) {
+      showLoader();
+      try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=${unit}`);
+        if (!res.ok) throw new Error('Unable to fetch weather.');
+        const data = await res.json();
+        renderResult(data);
+      } catch (err) {
+        showMessage(err.message || 'Error fetching weather.');
+      }
+    }
+
+    // show loader UI
+    function showLoader() {
+      display.innerHTML = `<div style="display:flex;gap:12px;align-items:center;flex-direction:column;">
+        <div class="loader" aria-hidden="true"></div>
+        <div style="opacity:0.95;color:#cfe7ff;font-weight:600">Fetching weather…</div>
+      </div>`;
+    }
+
+    // Geolocation handler
+    myLocBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) { showMessage('Geolocation not supported by this browser.'); return; }
+      showLoader();
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const {latitude, longitude} = pos.coords;
+        fetchWeatherByCoords(latitude, longitude);
+      }, (err) => {
+        showMessage('Unable to get location: ' + err.message);
+      }, {timeout: 10000});
+    });
+
+    // Submit handler
+    async function weatherinfo(event) {
+      if (event) event.preventDefault();
+      const city = input.value && input.value.trim();
+      if (!city) { showMessage('Please enter a city name.'); input.focus(); return; }
+      await fetchWeatherByCity(city);
+    }
+
+    // keyboard accessibility: Enter already submits, but add key handler for unit toggle
+    [unitC, unitF].forEach(btn => {
+      btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') btn.click(); });
+    });
+
+    // initial focus
+    input.focus();
+
+    // Allow pressing Enter while input empty to show quick message
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !input.value.trim()) { e.preventDefault(); showMessage('Type a city name (e.g. Paris) and press Get Weather.'); } });
+
+    // Allow pressing Ctrl+Enter to use geolocation
+    input.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key === 'Enter') { myLocBtn.click(); } });
+
+    // Optional: if the page was loaded with a query param ?q=city, auto search
+    (function checkQuery() {
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q') || '';
+      if (q) { input.value = q; weatherinfo(); }
+    })();
+  </script>
+</body>
+</html>
